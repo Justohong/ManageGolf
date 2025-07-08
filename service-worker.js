@@ -1,4 +1,4 @@
-const CACHE_NAME = 'schedule-pwa-cache-v2';
+const CACHE_NAME = 'schedule-pwa-cache-v3';
 const urlsToCache = [
     './',
     './index.html',
@@ -12,9 +12,6 @@ const urlsToCache = [
     './icon/icon-192x192.png',
     './icon/icon-512x512.png',
     './icon/favicon.ico',
-    './attendance_ui.js',
-    './schedule_generation_ui.js',
-    './share_ui.js',
     './settings_ui.js',
     './payment_logic.js',
     'https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js',

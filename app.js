@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 미납 회원 상태 업데이트
     try {
-        const updatedCount = await updateOverdueParticipantsStatus();
+        const updatedCount = await updateParticipantStatuses();
         if (updatedCount > 0) {
             console.log(`${updatedCount}명의 회원이 미납 상태로 변경되었습니다.`);
         }
