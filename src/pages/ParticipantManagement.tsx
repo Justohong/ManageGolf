@@ -1,0 +1,251 @@
+import React, { useEffect, useState, useRef } from 'react';
+import { useParticipantStore } from '../stores/participantStore';
+import type { Participant } from '../db';
+import * as XLSX from 'xlsx';
+
+const ParticipantManagement: React.FC = () => {
+  const { participants, fetchParticipants, addParticipant, updateParticipant } = useParticipantStore();
+  const [newParticipant, setNewParticipant] = useState<Partial<Participant>>({
+    name: '',
+    gender: '남',
+    contact: '',
+    status: '활동중',
+    joinDate: new Date().toISOString().split('T')[0],
+    nextPaymentDate: new Date().toISOString().split('T')[0],
+    memo: '',
+  });
+  const [editingParticipantId, setEditingParticipantId] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [excelTemplateUrl, setExcelTemplateUrl] = useState<string>('');
+
+  useEffect(() => {
+    fetchParticipants();
+    createExcelTemplate();
+  }, [fetchParticipants]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setNewParticipant({ ...newParticipant, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingParticipantId) {
+      await updateParticipant(editingParticipantId, newParticipant);
+      setEditingParticipantId(null);
+    } else {
+      await addParticipant(newParticipant as Participant);
+    }
+    setNewParticipant({
+      name: '',
+      gender: '남',
+      contact: '',
+      status: '활동중',
+      joinDate: new Date().toISOString().split('T')[0],
+      nextPaymentDate: new Date().toISOString().split('T')[0],
+      memo: '',
+    });
+  };
+
+  // 엑셀 템플릿 생성
+  const createExcelTemplate = () => {
+    // 엑셀 템플릿 데이터 생성
+    const templateData = [
+      {
+        '이름': '홍길동',
+        '성별': '남',
+        '연락처': '010-1234-5678',
+        '상태': '활동중',
+        '가입일': '2023-01-01',
+        '다음 결제일': '2023-06-01',
+        '메모': '예시 데이터입니다'
+      },
+      {
+        '이름': '',
+        '성별': '',
+        '연락처': '',
+        '상태': '',
+        '가입일': '',
+        '다음 결제일': '',
+        '메모': ''
+      }
+    ];
+
+    // 워크시트 생성
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    
+    // 상태 열에 데이터 유효성 검사 추가 (엑셀에서 드롭다운 목록으로 표시)
+    const validationRange = { s: { c: 3, r: 1 }, e: { c: 3, r: 100 } }; // 상태 열의 범위
+    const validationFormula = '"활동중,휴회중,만료"';
+    
+    if (!worksheet['!dataValidation']) {
+      worksheet['!dataValidation'] = [];
+    }
+    
+    worksheet['!dataValidation'].push({
+      sqref: XLSX.utils.encode_range(validationRange),
+      type: 'list',
+      formula1: validationFormula
+    });
+
+    // 성별 열에 데이터 유효성 검사 추가
+    const genderValidationRange = { s: { c: 1, r: 1 }, e: { c: 1, r: 100 } }; // 성별 열의 범위
+    const genderValidationFormula = '"남,여"';
+    
+    worksheet['!dataValidation'].push({
+      sqref: XLSX.utils.encode_range(genderValidationRange),
+      type: 'list',
+      formula1: genderValidationFormula
+    });
+
+    // 워크북 생성
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, '회원등록양식');
+
+    // 엑셀 파일 생성 및 다운로드 URL 설정
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    setExcelTemplateUrl(url);
+  };
+
+  // 엑셀 파일 업로드 처리
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
+
+        // 엑셀 데이터를 Participant 형식으로 변환
+        const participants = jsonData.map((row: any) => ({
+          name: row['이름'] || '',
+          gender: row['성별'] || '남',
+          contact: row['연락처'] || '',
+          status: row['상태'] || '활동중',
+          joinDate: row['가입일'] || new Date().toISOString().split('T')[0],
+          nextPaymentDate: row['다음 결제일'] || new Date().toISOString().split('T')[0],
+          memo: row['메모'] || '',
+        }));
+
+        // 회원 데이터 일괄 추가
+        for (const participant of participants) {
+          await addParticipant(participant as Participant);
+        }
+
+        alert(`${participants.length}명의 회원 데이터가 성공적으로 업로드되었습니다.`);
+        // 파일 입력 초기화
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      } catch (error) {
+        console.error('엑셀 파일 처리 중 오류 발생:', error);
+        alert('엑셀 파일 처리 중 오류가 발생했습니다. 파일 형식을 확인해주세요.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  // 엑셀 업로드 버튼 클릭 핸들러
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  return (
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">회원 등록</h1>
+
+      <div className="mb-6">
+        <div className="flex mb-4 space-x-2">
+          <a 
+            href={excelTemplateUrl} 
+            download="회원등록양식.xlsx" 
+            className="px-4 py-2 bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700"
+          >
+            엑셀 등록양식 다운로드
+          </a>
+          <button 
+            onClick={triggerFileInput} 
+            className="px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
+          >
+            엑셀 업로드
+          </button>
+          <input 
+            ref={fileInputRef}
+            type="file" 
+            accept=".xlsx, .xls" 
+            onChange={handleExcelUpload} 
+            className="hidden" 
+          />
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="mb-8 p-4 border rounded shadow-sm">
+        <h2 className="text-xl font-semibold mb-4">{editingParticipantId ? '회원 수정' : '새 회원 추가'}</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">이름</label>
+            <input type="text" id="name" name="name" value={newParticipant.name || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
+          </div>
+          <div>
+            <label htmlFor="gender" className="block text-sm font-medium text-gray-700">성별</label>
+            <select id="gender" name="gender" value={newParticipant.gender || '남'} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+              <option value="남">남</option>
+              <option value="여">여</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="contact" className="block text-sm font-medium text-gray-700">연락처</label>
+            <input type="text" id="contact" name="contact" value={newParticipant.contact || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
+          </div>
+          <div>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700">회원 상태</label>
+            <select id="status" name="status" value={newParticipant.status || '활동중'} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+              <option value="활동중">활동중</option>
+              <option value="휴회중">휴회중</option>
+              <option value="만료">만료</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="joinDate" className="block text-sm font-medium text-gray-700">가입일</label>
+            <input type="date" id="joinDate" name="joinDate" value={newParticipant.joinDate || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
+          </div>
+          <div>
+            <label htmlFor="nextPaymentDate" className="block text-sm font-medium text-gray-700">다음 결제 예정일</label>
+            <input type="date" id="nextPaymentDate" name="nextPaymentDate" value={newParticipant.nextPaymentDate || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
+          </div>
+        </div>
+        <div>
+          <label htmlFor="memo" className="block text-sm font-medium text-gray-700">메모</label>
+          <textarea id="memo" name="memo" value={newParticipant.memo || ''} onChange={handleChange} rows={3} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+        </div>
+        <button type="submit" className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700">
+          {editingParticipantId ? '회원 정보 수정' : '새 회원 추가'}
+        </button>
+        {editingParticipantId && (
+          <button type="button" onClick={() => {
+            setEditingParticipantId(null);
+            setNewParticipant({
+              name: '',
+              gender: '남',
+              contact: '',
+              status: '활동중',
+              joinDate: new Date().toISOString().split('T')[0],
+              nextPaymentDate: new Date().toISOString().split('T')[0],
+              memo: '',
+            });
+          }} className="ml-2 px-4 py-2 bg-gray-300 text-gray-800 rounded-md shadow-sm hover:bg-gray-400">
+            취소
+          </button>
+        )}
+      </form>
+    </div>
+  );
+};
+
+export default ParticipantManagement;
