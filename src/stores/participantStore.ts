@@ -17,7 +17,7 @@ export const useParticipantStore = create<ParticipantState>((set, get) => ({
     set({ participants });
   },
   addParticipant: async (participant) => {
-    const id = await participantService.addParticipant(participant);
+    await participantService.addParticipant(participant);
     get().fetchParticipants(); // Refresh list
   },
   updateParticipant: async (id, updates) => {

@@ -1,5 +1,6 @@
 {
   "name": "membership-dashboard",
+  "homepage": "https://justohong.github.io/ManageGolf",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,11 +8,14 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "chart.js": "^4.5.0",
     "dexie": "^4.0.11",
+    "gh-pages": "^6.3.0",
     "lucide-react": "^0.525.0",
     "react": "^19.1.0",
     "react-chartjs-2": "^5.3.0",

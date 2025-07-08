@@ -4,7 +4,7 @@ import type { Participant } from '../db';
 import * as XLSX from 'xlsx';
 
 const ParticipantManagement: React.FC = () => {
-  const { participants, fetchParticipants, addParticipant, updateParticipant } = useParticipantStore();
+  const { fetchParticipants, addParticipant, updateParticipant } = useParticipantStore();
   const [newParticipant, setNewParticipant] = useState<Partial<Participant>>({
     name: '',
     gender: '남',
