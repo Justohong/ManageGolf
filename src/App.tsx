@@ -8,7 +8,7 @@ import MonthlySettlement from './pages/MonthlySettlement';
 
 function App() {
   return (
-    <Router>
+    <Router basename="/ManageGolf">
       <Layout>
         <Routes>
           <Route path="/participants" element={<ParticipantManagement />} />
