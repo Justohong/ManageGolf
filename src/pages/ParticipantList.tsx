@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParticipantStore } from '../stores/participantStore';
 import type { Participant } from '../db';
 import * as XLSX from 'xlsx';
+import { FaSearch, FaFileExcel, FaFilter, FaEdit, FaTrash, FaSortAlphaDown, FaSortAlphaUp } from 'react-icons/fa';
 
 const ParticipantList: React.FC = () => {
   const { participants, fetchParticipants, updateParticipant, deleteParticipant } = useParticipantStore();
@@ -113,91 +114,126 @@ const ParticipantList: React.FC = () => {
 
   const getSortIcon = (field: keyof Participant) => {
     if (field !== sortField) return null;
-    return sortDirection === 'asc' ? '↑' : '↓';
+    return sortDirection === 'asc' ? <FaSortAlphaDown className="inline ml-1" /> : <FaSortAlphaUp className="inline ml-1" />;
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    switch(status) {
+      case '활동중':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case '휴회중':
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+      case '만료':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">회원 목록</h1>
-      
-      <div className="mb-6 flex flex-wrap items-center gap-4">
-        <div className="flex-grow">
-          <input
-            type="text"
-            placeholder="이름, 연락처 또는 메모로 검색..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-        </div>
-        <div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="p-2 border border-gray-300 rounded-md"
-          >
-            <option value="all">모든 상태</option>
-            <option value="활동중">활동중</option>
-            <option value="휴회중">휴회중</option>
-            <option value="만료">만료</option>
-          </select>
-        </div>
+    <div className="p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-4 sm:mb-0">회원 목록</h1>
         <button
           onClick={handleExcelDownload}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
+          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg shadow-sm hover:bg-green-700 transition-colors"
         >
+          <FaFileExcel className="mr-2" />
           엑셀 다운로드
         </button>
+      </div>
+      
+      <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center gap-4">
+          <div className="relative flex-grow">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FaSearch className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="이름, 연락처 또는 메모로 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div className="flex items-center">
+            <div className="flex items-center mr-2">
+              <FaFilter className="text-gray-500 mr-2" />
+              <span className="text-sm text-gray-600 mr-2">상태:</span>
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">모든 상태</option>
+              <option value="활동중">활동중</option>
+              <option value="휴회중">휴회중</option>
+              <option value="만료">만료</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* 회원 정보 수정 모달 */}
       {editingParticipant && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
-            <h2 className="text-xl font-semibold mb-4">회원 정보 수정</h2>
-            <form onSubmit={handleEditSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-800">회원 정보 수정</h2>
+              <button 
+                onClick={() => setEditingParticipant(null)}
+                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
-                  <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700">이름</label>
-                  <input type="text" id="edit-name" name="name" value={editingParticipant.name} onChange={handleEditChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
+                  <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700 mb-1">이름</label>
+                  <input type="text" id="edit-name" name="name" value={editingParticipant.name} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
                 <div>
-                  <label htmlFor="edit-gender" className="block text-sm font-medium text-gray-700">성별</label>
-                  <select id="edit-gender" name="gender" value={editingParticipant.gender} onChange={handleEditChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                  <label htmlFor="edit-gender" className="block text-sm font-medium text-gray-700 mb-1">성별</label>
+                  <select id="edit-gender" name="gender" value={editingParticipant.gender} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     <option value="남">남</option>
                     <option value="여">여</option>
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="edit-contact" className="block text-sm font-medium text-gray-700">연락처</label>
-                  <input type="text" id="edit-contact" name="contact" value={editingParticipant.contact} onChange={handleEditChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
+                  <label htmlFor="edit-contact" className="block text-sm font-medium text-gray-700 mb-1">연락처</label>
+                  <input type="text" id="edit-contact" name="contact" value={editingParticipant.contact} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
                 <div>
-                  <label htmlFor="edit-status" className="block text-sm font-medium text-gray-700">회원 상태</label>
-                  <select id="edit-status" name="status" value={editingParticipant.status} onChange={handleEditChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                  <label htmlFor="edit-status" className="block text-sm font-medium text-gray-700 mb-1">회원 상태</label>
+                  <select id="edit-status" name="status" value={editingParticipant.status} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     <option value="활동중">활동중</option>
                     <option value="휴회중">휴회중</option>
                     <option value="만료">만료</option>
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="edit-joinDate" className="block text-sm font-medium text-gray-700">가입일</label>
-                  <input type="date" id="edit-joinDate" name="joinDate" value={editingParticipant.joinDate} onChange={handleEditChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
+                  <label htmlFor="edit-joinDate" className="block text-sm font-medium text-gray-700 mb-1">가입일</label>
+                  <input type="date" id="edit-joinDate" name="joinDate" value={editingParticipant.joinDate} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
                 <div>
-                  <label htmlFor="edit-nextPaymentDate" className="block text-sm font-medium text-gray-700">다음 결제 예정일</label>
-                  <input type="date" id="edit-nextPaymentDate" name="nextPaymentDate" value={editingParticipant.nextPaymentDate} onChange={handleEditChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
+                  <label htmlFor="edit-nextPaymentDate" className="block text-sm font-medium text-gray-700 mb-1">다음 결제 예정일</label>
+                  <input type="date" id="edit-nextPaymentDate" name="nextPaymentDate" value={editingParticipant.nextPaymentDate} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
               </div>
               <div>
-                <label htmlFor="edit-memo" className="block text-sm font-medium text-gray-700">메모</label>
-                <textarea id="edit-memo" name="memo" value={editingParticipant.memo || ''} onChange={handleEditChange} rows={3} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+                <label htmlFor="edit-memo" className="block text-sm font-medium text-gray-700 mb-1">메모</label>
+                <textarea id="edit-memo" name="memo" value={editingParticipant.memo || ''} onChange={handleEditChange} rows={3} className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
               </div>
-              <div className="mt-4 flex justify-end space-x-2">
-                <button type="button" onClick={() => setEditingParticipant(null)} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">
+              <div className="mt-6 flex justify-end space-x-3">
+                <button type="button" onClick={() => setEditingParticipant(null)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                   취소
                 </button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                   저장
                 </button>
               </div>
@@ -206,84 +242,110 @@ const ParticipantList: React.FC = () => {
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white border border-gray-200">
-          <thead>
-            <tr>
-              <th 
-                className="py-2 px-4 border-b cursor-pointer hover:bg-gray-50"
-                onClick={() => handleSort('name')}
-              >
-                이름 {getSortIcon('name')}
-              </th>
-              <th 
-                className="py-2 px-4 border-b cursor-pointer hover:bg-gray-50"
-                onClick={() => handleSort('gender')}
-              >
-                성별 {getSortIcon('gender')}
-              </th>
-              <th 
-                className="py-2 px-4 border-b cursor-pointer hover:bg-gray-50"
-                onClick={() => handleSort('contact')}
-              >
-                연락처 {getSortIcon('contact')}
-              </th>
-              <th 
-                className="py-2 px-4 border-b cursor-pointer hover:bg-gray-50"
-                onClick={() => handleSort('status')}
-              >
-                상태 {getSortIcon('status')}
-              </th>
-              <th 
-                className="py-2 px-4 border-b cursor-pointer hover:bg-gray-50"
-                onClick={() => handleSort('joinDate')}
-              >
-                가입일 {getSortIcon('joinDate')}
-              </th>
-              <th 
-                className="py-2 px-4 border-b cursor-pointer hover:bg-gray-50"
-                onClick={() => handleSort('nextPaymentDate')}
-              >
-                다음 결제일 {getSortIcon('nextPaymentDate')}
-              </th>
-              <th className="py-2 px-4 border-b">메모</th>
-              <th className="py-2 px-4 border-b">관리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredParticipants.length > 0 ? (
-              filteredParticipants.map((participant) => (
-                <tr key={participant.id} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border-b">{participant.name}</td>
-                  <td className="py-2 px-4 border-b">{participant.gender}</td>
-                  <td className="py-2 px-4 border-b">{participant.contact}</td>
-                  <td className="py-2 px-4 border-b">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold
-                      ${participant.status === '활동중' ? 'bg-green-100 text-green-800' :
-                        participant.status === '휴회중' ? 'bg-gray-100 text-gray-800' :
-                        'bg-yellow-100 text-yellow-800'}
-                    `}>
-                      {participant.status}
-                    </span>
-                  </td>
-                  <td className="py-2 px-4 border-b">{participant.joinDate}</td>
-                  <td className="py-2 px-4 border-b">{participant.nextPaymentDate}</td>
-                  <td className="py-2 px-4 border-b">{participant.memo}</td>
-                  <td className="py-2 px-4 border-b">
-                    <button onClick={() => handleEdit(participant)} className="text-blue-600 hover:text-blue-900 mr-2">수정</button>
-                    <button onClick={() => handleDelete(participant.id)} className="text-red-600 hover:text-red-900">삭제</button>
+      <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('name')}
+                >
+                  <div className="flex items-center">
+                    이름 {getSortIcon('name')}
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('gender')}
+                >
+                  <div className="flex items-center">
+                    성별 {getSortIcon('gender')}
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('contact')}
+                >
+                  <div className="flex items-center">
+                    연락처 {getSortIcon('contact')}
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center">
+                    상태 {getSortIcon('status')}
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('joinDate')}
+                >
+                  <div className="flex items-center">
+                    가입일 {getSortIcon('joinDate')}
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('nextPaymentDate')}
+                >
+                  <div className="flex items-center">
+                    다음 결제일 {getSortIcon('nextPaymentDate')}
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  메모
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  관리
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredParticipants.length > 0 ? (
+                filteredParticipants.map((participant) => (
+                  <tr key={participant.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{participant.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{participant.gender}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{participant.contact}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadgeClass(participant.status)}`}>
+                        {participant.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{participant.joinDate}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{participant.nextPaymentDate}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{participant.memo}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button 
+                        onClick={() => handleEdit(participant)} 
+                        className="text-blue-600 hover:text-blue-900 mr-3 transition-colors"
+                        title="수정"
+                      >
+                        <FaEdit />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(participant.id)} 
+                        className="text-red-600 hover:text-red-900 transition-colors"
+                        title="삭제"
+                      >
+                        <FaTrash />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={8} className="px-6 py-10 text-center text-gray-500">
+                    {searchTerm || statusFilter !== 'all' ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={8} className="py-4 text-center text-gray-500">
-                  {searchTerm || statusFilter !== 'all' ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

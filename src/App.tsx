@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
 import ParticipantManagement from './pages/ParticipantManagement';
 import ParticipantList from './pages/ParticipantList';
 import PaymentManagement from './pages/PaymentManagement';
@@ -15,7 +16,7 @@ function App() {
           <Route path="/participants/list" element={<ParticipantList />} />
           <Route path="/payments" element={<PaymentManagement />} />
           <Route path="/settlement" element={<MonthlySettlement />} />
-          <Route path="/" element={<div>대시보드 페이지 (구현 예정)</div>} />
+          <Route path="/" element={<Dashboard />} />
         </Routes>
       </Layout>
     </Router>
