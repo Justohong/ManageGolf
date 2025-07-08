@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParticipantStore } from '../stores/participantStore';
 import { usePaymentStore } from '../stores/paymentStore';
-import type { Participant, Payment } from '../db';
+import type { Payment } from '../db';
 import { Chart as ChartJS, ArcElement, BarElement, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
-import { Pie, Bar, Line } from 'react-chartjs-2';
+import { Pie, Line } from 'react-chartjs-2';
 import { FaUsers, FaMoneyBillWave, FaChartLine, FaExclamationTriangle } from 'react-icons/fa';
 
 // ChartJS 컴포넌트 등록

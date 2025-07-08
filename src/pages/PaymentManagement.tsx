@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { usePaymentStore } from '../stores/paymentStore';
 import { useParticipantStore } from '../stores/participantStore';
 import type { Payment } from '../db';
-import type { Participant } from '../db';
 
 const PaymentManagement: React.FC = () => {
   const { payments, fetchPayments, addPayment, updatePayment, deletePayment } = usePaymentStore();

@@ -17,7 +17,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
     set({ payments });
   },
   addPayment: async (payment) => {
-    const id = await paymentService.addPayment(payment);
+    await paymentService.addPayment(payment);
     get().fetchPayments(); // Refresh list
   },
   updatePayment: async (id, updates) => {
