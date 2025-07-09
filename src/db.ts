@@ -3,11 +3,12 @@ import Dexie, { type Table } from 'dexie';
 export interface Participant {
   id?: number;
   name: string;
-  gender: string;
+  gender: '남' | '여';
   contact: string;
   status: '활동중' | '휴회중' | '만료';
   joinDate: string; // ISO 8601 format
   nextPaymentDate: string; // ISO 8601 format
+  carNumber?: string; // 차량번호 필드 추가
   memo?: string;
 }
 

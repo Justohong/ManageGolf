@@ -32,6 +32,7 @@ const ParticipantList: React.FC = () => {
       filtered = filtered.filter(
         p => p.name.toLowerCase().includes(term) || 
              p.contact.toLowerCase().includes(term) || 
+             (p.carNumber && p.carNumber.toLowerCase().includes(term)) ||
              (p.memo && p.memo.toLowerCase().includes(term))
       );
     }
@@ -97,6 +98,7 @@ const ParticipantList: React.FC = () => {
       '이름': p.name,
       '성별': p.gender,
       '연락처': p.contact,
+      '차량번호': p.carNumber || '',
       '상태': p.status,
       '가입일': p.joinDate,
       '다음 결제일': p.nextPaymentDate,
@@ -151,7 +153,7 @@ const ParticipantList: React.FC = () => {
             </div>
             <input
               type="text"
-              placeholder="이름, 연락처 또는 메모로 검색..."
+              placeholder="이름, 연락처, 차량번호 또는 메모로 검색..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -207,6 +209,10 @@ const ParticipantList: React.FC = () => {
                 <div>
                   <label htmlFor="edit-contact" className="block text-sm font-medium text-gray-700 mb-1">연락처</label>
                   <input type="text" id="edit-contact" name="contact" value={editingParticipant.contact} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required />
+                </div>
+                <div>
+                  <label htmlFor="edit-carNumber" className="block text-sm font-medium text-gray-700 mb-1">차량번호</label>
+                  <input type="text" id="edit-carNumber" name="carNumber" value={editingParticipant.carNumber || ''} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
                 <div>
                   <label htmlFor="edit-status" className="block text-sm font-medium text-gray-700 mb-1">회원 상태</label>
@@ -273,6 +279,14 @@ const ParticipantList: React.FC = () => {
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('carNumber')}
+                >
+                  <div className="flex items-center">
+                    차량번호 {getSortIcon('carNumber')}
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('status')}
                 >
                   <div className="flex items-center">
@@ -310,6 +324,7 @@ const ParticipantList: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{participant.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{participant.gender}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{participant.contact}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{participant.carNumber}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadgeClass(participant.status)}`}>
                         {participant.status}

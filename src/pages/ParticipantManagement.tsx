@@ -13,6 +13,7 @@ const ParticipantManagement: React.FC = () => {
     status: '활동중',
     joinDate: new Date().toISOString().split('T')[0],
     nextPaymentDate: new Date().toISOString().split('T')[0],
+    carNumber: '',
     memo: '',
   });
   const [editingParticipantId, setEditingParticipantId] = useState<number | null>(null);
@@ -43,6 +44,7 @@ const ParticipantManagement: React.FC = () => {
       status: '활동중',
       joinDate: new Date().toISOString().split('T')[0],
       nextPaymentDate: new Date().toISOString().split('T')[0],
+      carNumber: '',
       memo: '',
     });
   };
@@ -55,6 +57,7 @@ const ParticipantManagement: React.FC = () => {
         '이름': '홍길동',
         '성별': '남',
         '연락처': '010-1234-5678',
+        '차량번호': '12가3456',
         '상태': '활동중',
         '가입일': '2023-01-01',
         '다음 결제일': '2023-06-01',
@@ -64,6 +67,7 @@ const ParticipantManagement: React.FC = () => {
         '이름': '',
         '성별': '',
         '연락처': '',
+        '차량번호': '',
         '상태': '',
         '가입일': '',
         '다음 결제일': '',
@@ -75,7 +79,7 @@ const ParticipantManagement: React.FC = () => {
     const worksheet = XLSX.utils.json_to_sheet(templateData);
     
     // 상태 열에 데이터 유효성 검사 추가 (엑셀에서 드롭다운 목록으로 표시)
-    const validationRange = { s: { c: 3, r: 1 }, e: { c: 3, r: 100 } }; // 상태 열의 범위
+    const validationRange = { s: { c: 4, r: 1 }, e: { c: 4, r: 100 } }; // 상태 열의 범위
     const validationFormula = '"활동중,휴회중,만료"';
     
     if (!worksheet['!dataValidation']) {
@@ -128,6 +132,7 @@ const ParticipantManagement: React.FC = () => {
           name: row['이름'] || '',
           gender: row['성별'] || '남',
           contact: row['연락처'] || '',
+          carNumber: row['차량번호'] || '',
           status: row['상태'] || '활동중',
           joinDate: row['가입일'] || new Date().toISOString().split('T')[0],
           nextPaymentDate: row['다음 결제일'] || new Date().toISOString().split('T')[0],
@@ -232,6 +237,17 @@ const ParticipantManagement: React.FC = () => {
               />
             </div>
             <div>
+              <label htmlFor="carNumber" className="block text-sm font-medium text-gray-700 mb-1">차량번호</label>
+              <input 
+                type="text" 
+                id="carNumber" 
+                name="carNumber" 
+                value={newParticipant.carNumber || ''} 
+                onChange={handleChange} 
+                className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+              />
+            </div>
+            <div>
               <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">회원 상태</label>
               <select 
                 id="status" 
@@ -294,6 +310,7 @@ const ParticipantManagement: React.FC = () => {
                     status: '활동중',
                     joinDate: new Date().toISOString().split('T')[0],
                     nextPaymentDate: new Date().toISOString().split('T')[0],
+                    carNumber: '',
                     memo: '',
                   });
                 }} 
