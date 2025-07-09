@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+    <script type="text/javascript">
+      // 쿼리 파라미터를 유지하면서 세션 스토리지에 경로 저장
+      var path = sessionStorage.getItem('path');
+      if (path) {
+        sessionStorage.removeItem('path');
+        window.location.replace(path);
+      } else {
+        // 경로를 세션 스토리지에 저장하고 index.html로 리디렉션
+        var
+          l = window.location,
+          p = l.pathname.split('/').slice(0, -1).join('/') + '/'; // 현재 경로의 부모 디렉토리
+        sessionStorage.setItem('path', l.href);
+        l.replace(p);
+      }
+    </script>
+  </head>
+  <body>
+  </body>
+</html> 
