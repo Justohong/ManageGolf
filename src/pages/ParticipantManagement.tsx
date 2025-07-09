@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParticipantStore } from '../stores/participantStore';
 import type { Participant } from '../db';
 import * as XLSX from 'xlsx';
+import { FaFileExcel, FaUpload } from 'react-icons/fa';
 
 const ParticipantManagement: React.FC = () => {
   const { fetchParticipants, addParticipant, updateParticipant } = useParticipantStore();
@@ -157,22 +158,26 @@ const ParticipantManagement: React.FC = () => {
   };
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">회원 등록</h1>
+    <div className="p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-4 sm:mb-0">회원 등록</h1>
+      </div>
 
-      <div className="mb-6">
-        <div className="flex mb-4 space-x-2">
+      <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+        <div className="flex flex-wrap gap-3">
           <a 
             href={excelTemplateUrl} 
             download="회원등록양식.xlsx" 
-            className="px-4 py-2 bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700"
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg shadow-sm hover:bg-green-700 transition-colors"
           >
+            <FaFileExcel className="mr-2" />
             엑셀 등록양식 다운로드
           </a>
           <button 
             onClick={triggerFileInput} 
-            className="px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-colors"
           >
+            <FaUpload className="mr-2" />
             엑셀 업로드
           </button>
           <input 
@@ -185,65 +190,127 @@ const ParticipantManagement: React.FC = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="mb-8 p-4 border rounded shadow-sm">
+      <div className="bg-white rounded-xl shadow-md p-6">
         <h2 className="text-xl font-semibold mb-4">{editingParticipantId ? '회원 수정' : '새 회원 추가'}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">이름</label>
-            <input type="text" id="name" name="name" value={newParticipant.name || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">이름</label>
+              <input 
+                type="text" 
+                id="name" 
+                name="name" 
+                value={newParticipant.name || ''} 
+                onChange={handleChange} 
+                className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                required 
+              />
+            </div>
+            <div>
+              <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">성별</label>
+              <select 
+                id="gender" 
+                name="gender" 
+                value={newParticipant.gender || '남'} 
+                onChange={handleChange} 
+                className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="남">남</option>
+                <option value="여">여</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="contact" className="block text-sm font-medium text-gray-700 mb-1">연락처</label>
+              <input 
+                type="text" 
+                id="contact" 
+                name="contact" 
+                value={newParticipant.contact || ''} 
+                onChange={handleChange} 
+                className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                required 
+              />
+            </div>
+            <div>
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">회원 상태</label>
+              <select 
+                id="status" 
+                name="status" 
+                value={newParticipant.status || '활동중'} 
+                onChange={handleChange} 
+                className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="활동중">활동중</option>
+                <option value="휴회중">휴회중</option>
+                <option value="만료">만료</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="joinDate" className="block text-sm font-medium text-gray-700 mb-1">가입일</label>
+              <input 
+                type="date" 
+                id="joinDate" 
+                name="joinDate" 
+                value={newParticipant.joinDate || ''} 
+                onChange={handleChange} 
+                className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                required 
+              />
+            </div>
+            <div>
+              <label htmlFor="nextPaymentDate" className="block text-sm font-medium text-gray-700 mb-1">다음 결제 예정일</label>
+              <input 
+                type="date" 
+                id="nextPaymentDate" 
+                name="nextPaymentDate" 
+                value={newParticipant.nextPaymentDate || ''} 
+                onChange={handleChange} 
+                className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                required 
+              />
+            </div>
           </div>
           <div>
-            <label htmlFor="gender" className="block text-sm font-medium text-gray-700">성별</label>
-            <select id="gender" name="gender" value={newParticipant.gender || '남'} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-              <option value="남">남</option>
-              <option value="여">여</option>
-            </select>
+            <label htmlFor="memo" className="block text-sm font-medium text-gray-700 mb-1">메모</label>
+            <textarea 
+              id="memo" 
+              name="memo" 
+              value={newParticipant.memo || ''} 
+              onChange={handleChange} 
+              rows={3} 
+              className="w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            ></textarea>
           </div>
-          <div>
-            <label htmlFor="contact" className="block text-sm font-medium text-gray-700">연락처</label>
-            <input type="text" id="contact" name="contact" value={newParticipant.contact || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
+          <div className="mt-6 flex justify-end space-x-3">
+            {editingParticipantId && (
+              <button 
+                type="button" 
+                onClick={() => {
+                  setEditingParticipantId(null);
+                  setNewParticipant({
+                    name: '',
+                    gender: '남',
+                    contact: '',
+                    status: '활동중',
+                    joinDate: new Date().toISOString().split('T')[0],
+                    nextPaymentDate: new Date().toISOString().split('T')[0],
+                    memo: '',
+                  });
+                }} 
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                취소
+              </button>
+            )}
+            <button 
+              type="submit" 
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              {editingParticipantId ? '회원 정보 수정' : '새 회원 추가'}
+            </button>
           </div>
-          <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">회원 상태</label>
-            <select id="status" name="status" value={newParticipant.status || '활동중'} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-              <option value="활동중">활동중</option>
-              <option value="휴회중">휴회중</option>
-              <option value="만료">만료</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor="joinDate" className="block text-sm font-medium text-gray-700">가입일</label>
-            <input type="date" id="joinDate" name="joinDate" value={newParticipant.joinDate || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
-          </div>
-          <div>
-            <label htmlFor="nextPaymentDate" className="block text-sm font-medium text-gray-700">다음 결제 예정일</label>
-            <input type="date" id="nextPaymentDate" name="nextPaymentDate" value={newParticipant.nextPaymentDate || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
-          </div>
-        </div>
-        <div>
-          <label htmlFor="memo" className="block text-sm font-medium text-gray-700">메모</label>
-          <textarea id="memo" name="memo" value={newParticipant.memo || ''} onChange={handleChange} rows={3} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
-        </div>
-        <button type="submit" className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700">
-          {editingParticipantId ? '회원 정보 수정' : '새 회원 추가'}
-        </button>
-        {editingParticipantId && (
-          <button type="button" onClick={() => {
-            setEditingParticipantId(null);
-            setNewParticipant({
-              name: '',
-              gender: '남',
-              contact: '',
-              status: '활동중',
-              joinDate: new Date().toISOString().split('T')[0],
-              nextPaymentDate: new Date().toISOString().split('T')[0],
-              memo: '',
-            });
-          }} className="ml-2 px-4 py-2 bg-gray-300 text-gray-800 rounded-md shadow-sm hover:bg-gray-400">
-            취소
-          </button>
-        )}
-      </form>
+        </form>
+      </div>
     </div>
   );
 };
