@@ -5,6 +5,7 @@ import type { Payment } from '../db';
 import { Chart as ChartJS, ArcElement, BarElement, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Pie, Line } from 'react-chartjs-2';
 import { FaUsers, FaMoneyBillWave, FaChartLine, FaExclamationTriangle } from 'react-icons/fa';
+import DataBackupManager from '../components/DataBackupManager';
 
 // ChartJS 컴포넌트 등록
 ChartJS.register(
@@ -130,7 +131,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="p-6">
-      <h1 className="text-3xl font-bold mb-8 text-gray-800">대시보드</h1>
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">대시보드</h1>
       
       {/* 요약 카드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -322,6 +323,11 @@ const Dashboard: React.FC = () => {
             </table>
           </div>
         </div>
+      </div>
+      
+      {/* 데이터 백업 관리 섹션 추가 */}
+      <div className="mt-8">
+        <DataBackupManager />
       </div>
     </div>
   );

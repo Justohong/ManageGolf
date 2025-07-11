@@ -22,6 +22,21 @@ export interface Payment {
   settlementDate?: string; // ISO 8601 format
 }
 
+// Worker 메시지 타입 정의
+export type WorkerMessage = {
+  id: string;
+  action: string;
+  payload?: any;
+};
+
+export type WorkerResponse = {
+  id: string;
+  success: boolean;
+  data?: any;
+  error?: any;
+};
+
+// IndexedDB 작업을 처리하는 클래스
 export class MySubClassedDexie extends Dexie {
   participants!: Table<Participant>;
   payments!: Table<Payment>;
@@ -35,7 +50,285 @@ export class MySubClassedDexie extends Dexie {
   }
 }
 
-export const db = new MySubClassedDexie();
+// Web Worker를 통해 IndexedDB 작업을 처리하는 클래스
+class DBWorkerProxy {
+  private worker: Worker | null = null;
+  private callbacks: Map<string, { resolve: Function; reject: Function }> = new Map();
+  private initialized = false;
+  private initPromise: Promise<void>;
+  private initResolve!: Function;
+
+  constructor() {
+    // Worker 초기화 Promise 생성
+    this.initPromise = new Promise<void>((resolve) => {
+      this.initResolve = resolve;
+    });
+
+    // Worker 생성 시도
+    this.createWorker();
+  }
+
+  private createWorker() {
+    try {
+      // Worker 생성 및 메시지 핸들러 설정
+      const workerBlob = new Blob([`
+        importScripts('https://unpkg.com/dexie@3.2.3/dist/dexie.js');
+
+        // IndexedDB 초기화
+        const db = new Dexie('MembershipDashboardDB');
+        db.version(1).stores({
+          participants: '++id, name, status, nextPaymentDate',
+          payments: '++id, participantId, paymentDate',
+        });
+
+        // 메시지 핸들러
+        self.onmessage = async function(e) {
+          const { id, action, payload } = e.data;
+          
+          try {
+            let result;
+            
+            switch (action) {
+              case 'init':
+                result = { initialized: true };
+                break;
+              
+              // 참가자 관련 작업
+              case 'getParticipants':
+                result = await db.participants.toArray();
+                break;
+              case 'addParticipant':
+                result = await db.participants.add(payload);
+                break;
+              case 'updateParticipant':
+                await db.participants.update(payload.id, payload.data);
+                result = true;
+                break;
+              case 'deleteParticipant':
+                await db.participants.delete(payload);
+                result = true;
+                break;
+              case 'countParticipants':
+                result = await db.participants.count();
+                break;
+              
+              // 결제 관련 작업
+              case 'getPayments':
+                result = await db.payments.toArray();
+                break;
+              case 'addPayment':
+                result = await db.payments.add(payload);
+                break;
+              case 'updatePayment':
+                await db.payments.update(payload.id, payload.data);
+                result = true;
+                break;
+              case 'deletePayment':
+                await db.payments.delete(payload);
+                result = true;
+                break;
+              case 'countPayments':
+                result = await db.payments.count();
+                break;
+              
+              // 트랜잭션 작업
+              case 'transaction':
+                result = await db.transaction(payload.mode, payload.tables, payload.callback);
+                break;
+              
+              default:
+                throw new Error('Unknown action: ' + action);
+            }
+            
+            self.postMessage({ id, success: true, data: result });
+          } catch (error) {
+            self.postMessage({ id, success: false, error: error.message });
+          }
+        };
+      `], { type: 'application/javascript' });
+
+      this.worker = new Worker(URL.createObjectURL(workerBlob));
+      this.worker.onmessage = this.handleWorkerMessage.bind(this);
+
+      // Worker 초기화
+      this.sendToWorker('init').then(() => {
+        this.initialized = true;
+        this.initResolve();
+      }).catch(err => {
+        console.error('Worker 초기화 실패:', err);
+        // 실패 시 Worker 없이 계속 진행
+        this.initialized = true;
+        this.initResolve();
+      });
+    } catch (error) {
+      console.error('Worker 생성 실패:', error);
+      // Worker 생성 실패 시 초기화 완료 처리
+      this.initialized = true;
+      this.initResolve();
+    }
+  }
+
+  private handleWorkerMessage(event: MessageEvent) {
+    const response = event.data as WorkerResponse;
+    const callback = this.callbacks.get(response.id);
+    
+    if (callback) {
+      if (response.success) {
+        callback.resolve(response.data);
+      } else {
+        callback.reject(new Error(response.error));
+      }
+      this.callbacks.delete(response.id);
+    }
+  }
+
+  private generateId(): string {
+    return Date.now().toString() + Math.random().toString(36).substring(2, 9);
+  }
+
+  private async sendToWorker(action: string, payload?: any): Promise<any> {
+    // Worker 초기화 대기
+    await this.initPromise;
+    
+    // Worker가 없으면 오류 발생
+    if (!this.worker) {
+      throw new Error('Worker is not available');
+    }
+    
+    return new Promise((resolve, reject) => {
+      const id = this.generateId();
+      this.callbacks.set(id, { resolve, reject });
+      
+      const message: WorkerMessage = {
+        id,
+        action,
+        payload
+      };
+      
+      this.worker.postMessage(message);
+    });
+  }
+
+  // 참가자 관련 메서드
+  async getParticipants(): Promise<Participant[]> {
+    try {
+      return await this.sendToWorker('getParticipants');
+    } catch (error) {
+      console.error('참가자 조회 오류:', error);
+      return [];
+    }
+  }
+
+  async addParticipant(participant: Participant): Promise<number> {
+    return await this.sendToWorker('addParticipant', participant);
+  }
+
+  async updateParticipant(id: number, data: Partial<Participant>): Promise<void> {
+    await this.sendToWorker('updateParticipant', { id, data });
+  }
+
+  async deleteParticipant(id: number): Promise<void> {
+    await this.sendToWorker('deleteParticipant', id);
+  }
+
+  async countParticipants(): Promise<number> {
+    return await this.sendToWorker('countParticipants');
+  }
+
+  // 결제 관련 메서드
+  async getPayments(): Promise<Payment[]> {
+    try {
+      return await this.sendToWorker('getPayments');
+    } catch (error) {
+      console.error('결제 조회 오류:', error);
+      return [];
+    }
+  }
+
+  async addPayment(payment: Payment): Promise<number> {
+    return await this.sendToWorker('addPayment', payment);
+  }
+
+  async updatePayment(id: number, data: Partial<Payment>): Promise<void> {
+    await this.sendToWorker('updatePayment', { id, data });
+  }
+
+  async deletePayment(id: number): Promise<void> {
+    await this.sendToWorker('deletePayment', id);
+  }
+
+  async countPayments(): Promise<number> {
+    return await this.sendToWorker('countPayments');
+  }
+
+  // 트랜잭션 메서드
+  async transaction(mode: string, tables: any, callback: Function): Promise<void> {
+    await this.sendToWorker('transaction', { mode, tables, callback: callback.toString() });
+  }
+}
+
+// Worker 지원 여부에 따라 적절한 DB 인스턴스 생성
+const createDBInstance = () => {
+  // Worker 지원 여부 확인
+  const isWorkerSupported = typeof Worker !== 'undefined';
+  
+  if (isWorkerSupported) {
+    // Worker 지원 시 DBWorkerProxy 사용
+    const workerProxy = new DBWorkerProxy();
+    
+    return {
+      participants: {
+        toArray: async () => await workerProxy.getParticipants(),
+        add: async (participant: Participant) => await workerProxy.addParticipant(participant),
+        update: async (id: number, data: Partial<Participant>) => await workerProxy.updateParticipant(id, data),
+        delete: async (id: number) => await workerProxy.deleteParticipant(id),
+        count: async () => await workerProxy.countParticipants()
+      },
+      payments: {
+        toArray: async () => await workerProxy.getPayments(),
+        add: async (payment: Payment) => await workerProxy.addPayment(payment),
+        update: async (id: number, data: Partial<Payment>) => await workerProxy.updatePayment(id, data),
+        delete: async (id: number) => await workerProxy.deletePayment(id),
+        count: async () => await workerProxy.countPayments()
+      },
+      transaction: async (mode: string, tables: any, callback: Function) => 
+        await workerProxy.transaction(mode, tables, callback)
+    };
+  } else {
+    // Worker 미지원 시 직접 IndexedDB 사용
+    const directDB = new MySubClassedDexie();
+    
+    return {
+      participants: {
+        toArray: async () => await directDB.participants.toArray(),
+        add: async (participant: Participant) => await directDB.participants.add(participant),
+        update: async (id: number, data: Partial<Participant>) => {
+          await directDB.participants.update(id, data);
+        },
+        delete: async (id: number) => {
+          await directDB.participants.delete(id);
+        },
+        count: async () => await directDB.participants.count()
+      },
+      payments: {
+        toArray: async () => await directDB.payments.toArray(),
+        add: async (payment: Payment) => await directDB.payments.add(payment),
+        update: async (id: number, data: Partial<Payment>) => {
+          await directDB.payments.update(id, data);
+        },
+        delete: async (id: number) => {
+          await directDB.payments.delete(id);
+        },
+        count: async () => await directDB.payments.count()
+      },
+      transaction: async (mode: string, tables: any, callback: Function) => 
+        await directDB.transaction(mode, tables, callback)
+    };
+  }
+};
+
+// 데이터베이스 인스턴스 생성
+export const db = createDBInstance();
 
 // Seed data for demo purposes
 export const initializeDemoData = async () => {
@@ -152,7 +445,9 @@ export const initializeDemoData = async () => {
     ];
 
     // Add all payments
-    await db.payments.bulkAdd(payments);
+    for (const payment of payments) {
+      await db.payments.add(payment);
+    }
     
     console.log('Demo data initialized successfully');
     return true;

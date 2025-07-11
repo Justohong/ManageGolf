@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FaHome, FaUserPlus, FaUsers, FaCreditCard, FaChartBar, FaBars, FaTimes } from 'react-icons/fa';
+import { FaHome, FaUserPlus, FaUsers, FaCreditCard, FaChartBar, FaBars, FaTimes, FaDatabase } from 'react-icons/fa';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -20,10 +20,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navItems = [
     { path: '/', label: '대시보드', icon: <FaHome className="mr-3" /> },
-    { path: '/participants', label: '회원 등록', icon: <FaUserPlus className="mr-3" /> },
+    { path: '/participants/manage', label: '회원 등록', icon: <FaUserPlus className="mr-3" /> },
     { path: '/participants/list', label: '회원 목록', icon: <FaUsers className="mr-3" /> },
     { path: '/payments', label: '결제 관리', icon: <FaCreditCard className="mr-3" /> },
     { path: '/settlement', label: '월별 정산', icon: <FaChartBar className="mr-3" /> },
+    { path: '/data-management', label: '데이터 관리', icon: <FaDatabase className="mr-3" /> },
   ];
 
   return (
