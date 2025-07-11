@@ -1,20 +1,20 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
-import { initializeDemoData } from './db.ts'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+import { initializeDemoData } from './db';
 
-// Initialize demo data
-initializeDemoData().then(initialized => {
+// 앱 시작 시 데모 데이터 초기화
+initializeDemoData().then((initialized) => {
   if (initialized) {
-    console.log('Demo data loaded successfully!');
+    console.log('데모 데이터가 초기화되었습니다.');
   } else {
-    console.log('Using existing data from IndexedDB');
+    console.log('기존 데이터가 있어 데모 데이터를 초기화하지 않았습니다.');
   }
 });
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
     <App />
-  </StrictMode>,
-)
+  </React.StrictMode>
+);
