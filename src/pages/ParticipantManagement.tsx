@@ -116,16 +116,50 @@ const ParticipantManagement: React.FC = () => {
   // 엑셀 파일 업로드 처리
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      alert('파일이 선택되지 않았습니다.');
+      return;
+    }
 
+    console.log('엑셀 파일 업로드 시작:', file.name);
+    
     const reader = new FileReader();
+    
     reader.onload = async (event) => {
       try {
+        console.log('파일 읽기 완료');
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        
+        console.log('XLSX 파싱 시작');
         const workbook = XLSX.read(data, { type: 'array' });
+        
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+          alert('엑셀 파일에 시트가 없습니다.');
+          return;
+        }
+        
         const sheetName = workbook.SheetNames[0];
+        console.log('시트 이름:', sheetName);
+        
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
+        
+        console.log('파싱된 데이터:', jsonData);
+        
+        if (jsonData.length === 0) {
+          alert('엑셀 파일에 데이터가 없습니다.');
+          return;
+        }
+
+        // 필수 열 확인
+        const firstRow = jsonData[0];
+        const requiredColumns = ['이름', '성별', '연락처', '상태'];
+        const missingColumns = requiredColumns.filter(col => !(col in firstRow));
+        
+        if (missingColumns.length > 0) {
+          alert(`필수 열이 누락되었습니다: ${missingColumns.join(', ')}\n엑셀 양식을 다운로드하여 형식을 확인해주세요.`);
+          return;
+        }
 
         // 엑셀 데이터를 Participant 형식으로 변환
         const participants = jsonData.map((row: any) => ({
@@ -139,21 +173,51 @@ const ParticipantManagement: React.FC = () => {
           memo: row['메모'] || '',
         }));
 
+        console.log('변환된 참가자 데이터:', participants);
+
         // 회원 데이터 일괄 추가
-        for (const participant of participants) {
-          await addParticipant(participant as Participant);
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (let i = 0; i < participants.length; i++) {
+          try {
+            const participant = participants[i];
+            console.log(`참가자 ${i+1} 추가 시도:`, participant.name);
+            await addParticipant(participant as Participant);
+            successCount++;
+          } catch (error) {
+            console.error(`참가자 ${i+1} 추가 실패:`, error);
+            errorCount++;
+          }
         }
 
-        alert(`${participants.length}명의 회원 데이터가 성공적으로 업로드되었습니다.`);
+        if (errorCount > 0) {
+          alert(`${successCount}명의 회원 데이터가 업로드되었습니다.\n${errorCount}명의 데이터는 오류로 인해 업로드되지 않았습니다.\n자세한 내용은 개발자 도구의 콘솔을 확인하세요.`);
+        } else {
+          alert(`${successCount}명의 회원 데이터가 성공적으로 업로드되었습니다.`);
+        }
+        
         // 파일 입력 초기화
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
       } catch (error) {
         console.error('엑셀 파일 처리 중 오류 발생:', error);
-        alert('엑셀 파일 처리 중 오류가 발생했습니다. 파일 형식을 확인해주세요.');
+        alert(`엑셀 파일 처리 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}\n파일 형식을 확인해주세요.`);
+        
+        // 파일 입력 초기화
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     };
+    
+    reader.onerror = (error) => {
+      console.error('파일 읽기 오류:', error);
+      alert('파일 읽기 중 오류가 발생했습니다.');
+    };
+
+    console.log('파일 읽기 시작');
     reader.readAsArrayBuffer(file);
   };
 
