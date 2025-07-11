@@ -121,16 +121,20 @@ const ParticipantManagement: React.FC = () => {
       return;
     }
 
-    console.log('엑셀 파일 업로드 시작:', file.name);
+    console.log('엑셀 파일 업로드 시작:', file.name, '파일 크기:', file.size, '바이트');
     
     const reader = new FileReader();
     
     reader.onload = async (event) => {
       try {
-        console.log('파일 읽기 완료');
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        if (!event.target?.result) {
+          throw new Error('파일 읽기 결과가 없습니다.');
+        }
         
-        console.log('XLSX 파싱 시작');
+        console.log('파일 읽기 완료, 데이터 크기:', (event.target.result as ArrayBuffer).byteLength);
+        const data = new Uint8Array(event.target.result as ArrayBuffer);
+        
+        console.log('XLSX 파싱 시작, 데이터 길이:', data.length);
         const workbook = XLSX.read(data, { type: 'array' });
         
         if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
@@ -142,9 +146,15 @@ const ParticipantManagement: React.FC = () => {
         console.log('시트 이름:', sheetName);
         
         const worksheet = workbook.Sheets[sheetName];
+        if (!worksheet) {
+          throw new Error(`워크시트 '${sheetName}'를 찾을 수 없습니다.`);
+        }
+        
+        console.log('워크시트 정보:', Object.keys(worksheet).filter(k => k !== '!ref'));
+        
         const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
         
-        console.log('파싱된 데이터:', jsonData);
+        console.log('파싱된 데이터:', jsonData.length, '개 행');
         
         if (jsonData.length === 0) {
           alert('엑셀 파일에 데이터가 없습니다.');
@@ -153,6 +163,8 @@ const ParticipantManagement: React.FC = () => {
 
         // 필수 열 확인
         const firstRow = jsonData[0];
+        console.log('첫 번째 행 데이터:', firstRow);
+        
         const requiredColumns = ['이름', '성별', '연락처', '상태'];
         const missingColumns = requiredColumns.filter(col => !(col in firstRow));
         
@@ -173,7 +185,7 @@ const ParticipantManagement: React.FC = () => {
           memo: row['메모'] || '',
         }));
 
-        console.log('변환된 참가자 데이터:', participants);
+        console.log('변환된 참가자 데이터:', participants.length, '명');
 
         // 회원 데이터 일괄 추가
         let successCount = 0;
@@ -183,7 +195,16 @@ const ParticipantManagement: React.FC = () => {
           try {
             const participant = participants[i];
             console.log(`참가자 ${i+1} 추가 시도:`, participant.name);
-            await addParticipant(participant as Participant);
+            
+            // 참가자 데이터 유효성 검사
+            if (!participant.name) {
+              console.error(`참가자 ${i+1} 추가 실패: 이름이 없습니다.`);
+              errorCount++;
+              continue;
+            }
+            
+            const id = await addParticipant(participant as Participant);
+            console.log(`참가자 ${i+1} 추가 성공, ID:`, id);
             successCount++;
           } catch (error) {
             console.error(`참가자 ${i+1} 추가 실패:`, error);
@@ -191,6 +212,8 @@ const ParticipantManagement: React.FC = () => {
           }
         }
 
+        console.log(`업로드 완료: 성공 ${successCount}명, 실패 ${errorCount}명`);
+        
         if (errorCount > 0) {
           alert(`${successCount}명의 회원 데이터가 업로드되었습니다.\n${errorCount}명의 데이터는 오류로 인해 업로드되지 않았습니다.\n자세한 내용은 개발자 도구의 콘솔을 확인하세요.`);
         } else {
