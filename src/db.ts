@@ -70,6 +70,7 @@ class DBWorkerProxy {
 
   private createWorker() {
     try {
+      console.log('Web Worker 생성 시도');
       // Worker 생성 및 메시지 핸들러 설정
       const workerBlob = new Blob([`
         importScripts('https://unpkg.com/dexie@3.2.3/dist/dexie.js');
@@ -142,16 +143,23 @@ class DBWorkerProxy {
             
             self.postMessage({ id, success: true, data: result });
           } catch (error) {
+            console.error('Worker 내부 오류:', action, error);
             self.postMessage({ id, success: false, error: error.message });
           }
         };
       `], { type: 'application/javascript' });
 
       this.worker = new Worker(URL.createObjectURL(workerBlob));
+      console.log('Web Worker 객체 생성됨');
+      
       this.worker.onmessage = this.handleWorkerMessage.bind(this);
+      this.worker.onerror = (event) => {
+        console.error('Worker 오류 발생:', event);
+      };
 
       // Worker 초기화
       this.sendToWorker('init').then(() => {
+        console.log('Web Worker 초기화 성공');
         this.initialized = true;
         this.initResolve();
       }).catch(err => {
@@ -192,8 +200,56 @@ class DBWorkerProxy {
     
     // Worker가 없으면 오류 발생
     if (!this.worker) {
-      throw new Error('Worker is not available');
+      console.error('Worker가 생성되지 않았습니다. 직접 IndexedDB를 사용합니다.');
+      
+      // 직접 IndexedDB 사용 (fallback)
+      const directDB = new MySubClassedDexie();
+      
+      try {
+        switch(action) {
+          case 'getParticipants':
+            return await directDB.participants.toArray();
+          case 'addParticipant':
+            return await directDB.participants.add(payload);
+          case 'updateParticipant':
+            if (payload && typeof payload.id === 'number') {
+              await directDB.participants.update(payload.id, payload.data);
+              return true;
+            }
+            throw new Error('Invalid payload for updateParticipant');
+          case 'deleteParticipant':
+            await directDB.participants.delete(payload);
+            return true;
+          case 'countParticipants':
+            return await directDB.participants.count();
+          case 'getPayments':
+            return await directDB.payments.toArray();
+          case 'addPayment':
+            return await directDB.payments.add(payload);
+          case 'updatePayment':
+            if (payload && typeof payload.id === 'number') {
+              await directDB.payments.update(payload.id, payload.data);
+              return true;
+            }
+            throw new Error('Invalid payload for updatePayment');
+          case 'deletePayment':
+            await directDB.payments.delete(payload);
+            return true;
+          case 'countPayments':
+            return await directDB.payments.count();
+          // transaction 케이스는 복잡하므로 직접 구현하지 않고 오류 발생
+          case 'transaction':
+            throw new Error('트랜잭션은 Worker 없이 지원되지 않습니다');
+          default:
+            throw new Error(`지원되지 않는 액션: ${action}`);
+        }
+      } catch (error) {
+        console.error(`직접 DB 작업 중 오류(${action}):`, error);
+        throw error;
+      }
     }
+    
+    console.log(`Worker에 메시지 전송: ${action}`);
     
     return new Promise((resolve, reject) => {
       const id = this.generateId();
@@ -205,7 +261,11 @@ class DBWorkerProxy {
         payload
       };
       
-      this.worker.postMessage(message);
+      if (this.worker) {
+        this.worker.postMessage(message);
+      } else {
+        reject(new Error('Worker is not available'));
+      }
     });
   }
 
