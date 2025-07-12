@@ -174,18 +174,58 @@ const ParticipantManagement: React.FC = () => {
         }
 
         // 엑셀 데이터를 Participant 형식으로 변환
-        const participants = jsonData.map((row: any) => ({
-          name: row['이름'] || '',
-          gender: row['성별'] || '남',
-          contact: row['연락처'] || '',
-          carNumber: row['차량번호'] || '',
-          status: row['상태'] || '활동중',
-          joinDate: row['가입일'] || new Date().toISOString().split('T')[0],
-          nextPaymentDate: row['다음 결제일'] || new Date().toISOString().split('T')[0],
-          memo: row['메모'] || '',
-        }));
+        const participants = jsonData.map((row: any) => {
+          // 날짜 필드가 숫자나 다른 형식으로 들어왔을 경우 문자열로 변환
+          let joinDate = row['가입일'] || new Date().toISOString().split('T')[0];
+          let nextPaymentDate = row['다음 결제일'] || new Date().toISOString().split('T')[0];
+          
+          // 날짜가 Date 객체인 경우 ISO 문자열로 변환
+          if (joinDate instanceof Date) {
+            joinDate = joinDate.toISOString().split('T')[0];
+          } else if (typeof joinDate === 'number') {
+            // Excel 날짜 시리얼 번호를 Date로 변환 후 문자열화
+            const excelEpoch = new Date(1899, 11, 30);
+            const excelDate = new Date(excelEpoch.getTime() + joinDate * 24 * 60 * 60 * 1000);
+            joinDate = excelDate.toISOString().split('T')[0];
+          } else if (typeof joinDate !== 'string') {
+            joinDate = new Date().toISOString().split('T')[0];
+          }
+          
+          if (nextPaymentDate instanceof Date) {
+            nextPaymentDate = nextPaymentDate.toISOString().split('T')[0];
+          } else if (typeof nextPaymentDate === 'number') {
+            const excelEpoch = new Date(1899, 11, 30);
+            const excelDate = new Date(excelEpoch.getTime() + nextPaymentDate * 24 * 60 * 60 * 1000);
+            nextPaymentDate = excelDate.toISOString().split('T')[0];
+          } else if (typeof nextPaymentDate !== 'string') {
+            nextPaymentDate = new Date().toISOString().split('T')[0];
+          }
+          
+          // 성별과 상태 필드 검증 및 기본값 설정
+          let gender = row['성별'] || '남';
+          if (gender !== '남' && gender !== '여') {
+            gender = '남'; // 기본값
+          }
+          
+          let status = row['상태'] || '활동중';
+          if (status !== '활동중' && status !== '휴회중' && status !== '만료') {
+            status = '활동중'; // 기본값
+          }
+          
+          return {
+            name: row['이름'] || '',
+            gender: gender as '남' | '여',
+            contact: row['연락처'] || '',
+            carNumber: row['차량번호'] || '',
+            status: status as '활동중' | '휴회중' | '만료',
+            joinDate: joinDate,
+            nextPaymentDate: nextPaymentDate,
+            memo: row['메모'] || '',
+          };
+        });
 
         console.log('변환된 참가자 데이터:', participants.length, '명');
+        console.log('첫 번째 참가자 데이터 샘플:', participants[0]);
 
         // 회원 데이터 일괄 추가
         let successCount = 0;
@@ -203,11 +243,35 @@ const ParticipantManagement: React.FC = () => {
               continue;
             }
             
-            const id = await addParticipant(participant as Participant);
-            console.log(`참가자 ${i+1} 추가 성공, ID:`, id);
-            successCount++;
+            // 연락처 확인
+            if (!participant.contact) {
+              console.warn(`참가자 ${i+1}(${participant.name}) 연락처가 없습니다. 빈 문자열로 설정합니다.`);
+              participant.contact = '';
+            }
+            
+            // 모든 날짜 필드가 문자열인지 다시 확인
+            if (typeof participant.joinDate !== 'string') {
+              console.warn(`참가자 ${i+1}(${participant.name}) joinDate 타입 오류, 문자열로 변환:`, participant.joinDate);
+              participant.joinDate = new Date().toISOString().split('T')[0];
+            }
+            
+            if (typeof participant.nextPaymentDate !== 'string') {
+              console.warn(`참가자 ${i+1}(${participant.name}) nextPaymentDate 타입 오류, 문자열로 변환:`, participant.nextPaymentDate);
+              participant.nextPaymentDate = new Date().toISOString().split('T')[0];
+            }
+            
+            console.log(`참가자 ${i+1} 최종 데이터:`, JSON.stringify(participant));
+            
+            try {
+              const id = await addParticipant(participant as Participant);
+              console.log(`참가자 ${i+1} 추가 성공, ID:`, id);
+              successCount++;
+            } catch (addError) {
+              console.error(`참가자 ${i+1} addParticipant 호출 실패:`, addError);
+              errorCount++;
+            }
           } catch (error) {
-            console.error(`참가자 ${i+1} 추가 실패:`, error);
+            console.error(`참가자 ${i+1} 처리 중 예외 발생:`, error);
             errorCount++;
           }
         }
@@ -219,6 +283,9 @@ const ParticipantManagement: React.FC = () => {
         } else {
           alert(`${successCount}명의 회원 데이터가 성공적으로 업로드되었습니다.`);
         }
+        
+        // 성공 여부와 관계없이 참가자 목록을 다시 불러옵니다
+        await fetchParticipants();
         
         // 파일 입력 초기화
         if (fileInputRef.current) {

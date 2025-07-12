@@ -80,7 +80,7 @@ const MonthlySettlement: React.FC = () => {
 
   // Calculate expected vs actual income
   const activeParticipants = participants.filter(p => p.status === '활동중').length;
-  const expectedMonthlyIncome = activeParticipants * 100000; // 가정: 월 회비 10만원
+  const expectedMonthlyIncome = activeParticipants * 210000; // 가정: 월 회비 21만원
   const incomeRatio = totalIncome > 0 ? Math.round((totalIncome / expectedMonthlyIncome) * 100) : 0;
   
   return (

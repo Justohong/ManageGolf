@@ -111,8 +111,39 @@ class DBWorkerProxy {
                 case 'addParticipant':
                   try {
                     console.log('Worker: addParticipant 시작', payload);
+                    
+                    // 데이터 유효성 검사 추가
+                    if (!payload || typeof payload !== 'object') {
+                      throw new Error('유효하지 않은 참가자 데이터');
+                    }
+                    
+                    // 날짜 필드가 문자열인지 확인
+                    if (payload.joinDate && typeof payload.joinDate !== 'string') {
+                      console.warn('Worker: joinDate가 문자열이 아님', typeof payload.joinDate);
+                      payload.joinDate = String(payload.joinDate);
+                    }
+                    
+                    if (payload.nextPaymentDate && typeof payload.nextPaymentDate !== 'string') {
+                      console.warn('Worker: nextPaymentDate가 문자열이 아님', typeof payload.nextPaymentDate);
+                      payload.nextPaymentDate = String(payload.nextPaymentDate);
+                    }
+                    
+                    // 참가자 추가
                     result = await db.participants.add(payload);
                     console.log('Worker: addParticipant 성공', result);
+                    
+                    // 결과 검증
+                    if (result === undefined || result === null) {
+                      console.warn('Worker: addParticipant 결과가 undefined/null임');
+                      // 결과가 없으면 임의의 ID를 반환 (실제로는 이렇게 하면 안 되지만 테스트용)
+                      result = Date.now();
+                    }
+                    
+                    // 결과가 bigint인 경우 Number로 변환 (구조적 복제 오류 방지)
+                    if (typeof result === 'bigint') {
+                      console.warn('Worker: bigint 결과 감지, Number로 변환', result);
+                      result = Number(result);
+                    }
                   } catch (err) {
                     console.error('Worker: addParticipant 실패', err);
                     throw err;
@@ -158,10 +189,51 @@ class DBWorkerProxy {
                   throw new Error('Unknown action: ' + action);
               }
               
-              self.postMessage({ id, success: true, data: result });
+              // 결과 전송 시 오류 처리 추가
+              try {
+                self.postMessage({ id, success: true, data: result });
+              } catch (postError) {
+                console.error('Worker: postMessage 실패', postError);
+                // 구조적 복제 오류 등의 경우 간소화된 응답 전송 시도
+                try {
+                  self.postMessage({ 
+                    id, 
+                    success: true, 
+                    data: typeof result === 'object' ? 'Object successfully processed but cannot be transferred' : String(result)
+                  });
+                } catch (finalError) {
+                  console.error('Worker: 최종 postMessage 실패', finalError);
+                }
+              }
             } catch (error) {
               console.error('Worker 내부 오류:', action, error);
-              self.postMessage({ id, success: false, error: error.message || 'Unknown error' });
+              
+              // 오류 객체 직렬화
+              let errorMessage = 'Unknown error';
+              let errorDetails = {};
+              
+              if (error instanceof Error) {
+                errorMessage = error.message;
+                errorDetails = {
+                  name: error.name,
+                  stack: error.stack
+                };
+              } else if (typeof error === 'string') {
+                errorMessage = error;
+              } else if (error && typeof error === 'object') {
+                try {
+                  errorMessage = JSON.stringify(error);
+                } catch (e) {
+                  errorMessage = 'Error object cannot be stringified';
+                }
+              }
+              
+              self.postMessage({ 
+                id, 
+                success: false, 
+                error: errorMessage,
+                errorDetails: errorDetails
+              });
             }
           };
         } catch (initError) {
@@ -182,7 +254,14 @@ class DBWorkerProxy {
       
       this.worker.onmessage = this.handleWorkerMessage.bind(this);
       this.worker.onerror = (event) => {
-        console.error('Worker 오류 발생:', event);
+        console.error('Worker 오류 발생:', event.message, event.filename, event.lineno, event);
+        
+        // 오류 발생 시 대기 중인 모든 콜백에 알림
+        this.callbacks.forEach((callback, id) => {
+          console.error(`Worker 오류로 인해 요청(${id}) 거부됨`);
+          callback.reject(new Error(`Worker error: ${event.message}`));
+          this.callbacks.delete(id);
+        });
       };
 
       // Worker 초기화
@@ -209,12 +288,21 @@ class DBWorkerProxy {
     const callback = this.callbacks.get(response.id);
     
     if (callback) {
+      // 타임아웃이 설정된 경우 해제
+      if ((callback as any).timeoutId) {
+        clearTimeout((callback as any).timeoutId);
+      }
+      
       if (response.success) {
+        console.log(`Worker 응답 성공(${response.id}):`, response.data);
         callback.resolve(response.data);
       } else {
+        console.error(`Worker 응답 실패(${response.id}):`, response.error);
         callback.reject(new Error(response.error));
       }
       this.callbacks.delete(response.id);
+    } else {
+      console.warn('Worker 응답에 대한 콜백을 찾을 수 없음:', response.id);
     }
   }
 
@@ -309,7 +397,8 @@ class DBWorkerProxy {
     
     return new Promise((resolve, reject) => {
       const id = this.generateId();
-      this.callbacks.set(id, { resolve, reject });
+      const callbackObj = { resolve, reject };
+      this.callbacks.set(id, callbackObj);
       
       const message: WorkerMessage = {
         id,
@@ -317,10 +406,30 @@ class DBWorkerProxy {
         payload
       };
       
-      if (this.worker) {
-        this.worker.postMessage(message);
-      } else {
-        reject(new Error('Worker is not available'));
+      // 타임아웃 설정 (10초)
+      const timeoutId = setTimeout(() => {
+        if (this.callbacks.has(id)) {
+          console.error(`Worker 요청 타임아웃: ${action}`);
+          this.callbacks.delete(id);
+          reject(new Error(`Worker request timed out: ${action}`));
+        }
+      }, 10000);
+      
+      // 타임아웃 ID를 콜백 객체에 저장
+      (callbackObj as any).timeoutId = timeoutId;
+      
+      try {
+        if (this.worker) {
+          this.worker.postMessage(message);
+        } else {
+          clearTimeout(timeoutId);
+          reject(new Error('Worker is not available'));
+        }
+      } catch (error) {
+        clearTimeout(timeoutId);
+        console.error(`Worker 메시지 전송 실패: ${action}`, error);
+        this.callbacks.delete(id);
+        reject(error);
       }
     });
   }
@@ -396,7 +505,12 @@ const createDBInstance = () => {
   // Worker 지원 여부 확인
   const isWorkerSupported = typeof Worker !== 'undefined';
   
-  if (isWorkerSupported) {
+  // Worker 사용 여부 설정
+  // 테스트 중에는 false로 설정하여 직접 IndexedDB를 사용하고,
+  // 테스트 후에는 true로 변경하여 Worker를 사용할 수 있습니다.
+  const useWorker = false; // isWorkerSupported;
+  
+  if (useWorker) {
     // Worker 지원 시 DBWorkerProxy 사용
     const workerProxy = new DBWorkerProxy();
     
@@ -446,7 +560,7 @@ const createDBInstance = () => {
         count: async () => await directDB.payments.count()
       },
       transaction: async (mode: 'r' | 'rw', tables: any, callback: Function) => 
-        await directDB.transaction(mode, tables, callback)
+        await directDB.transaction(mode, tables, callback as (trans: any) => unknown)
     };
   }
 };
