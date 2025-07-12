@@ -25,11 +25,32 @@ export const useParticipantStore = create<ParticipantStore>((set, get) => ({
   
   addParticipant: async (participant: Participant) => {
     try {
-      const id = await db.participants.add(participant);
+      console.log('participantStore: addParticipant 호출됨', participant);
+      
+      // 필수 필드 검증
+      if (!participant.name) {
+        throw new Error('이름은 필수 입력 항목입니다.');
+      }
+      
+      if (!participant.contact) {
+        throw new Error('연락처는 필수 입력 항목입니다.');
+      }
+      
+      // 기본값 설정
+      const participantWithDefaults = {
+        ...participant,
+        gender: participant.gender || '남',
+        status: participant.status || '활동중',
+        joinDate: participant.joinDate || new Date().toISOString().split('T')[0],
+        nextPaymentDate: participant.nextPaymentDate || new Date().toISOString().split('T')[0],
+      };
+      
+      const id = await db.participants.add(participantWithDefaults);
+      console.log('participantStore: 참가자 추가 성공', id);
       await get().fetchParticipants();
       return id;
     } catch (error) {
-      console.error('Error adding participant:', error);
+      console.error('participantStore: 참가자 추가 오류', error);
       throw error;
     }
   },
